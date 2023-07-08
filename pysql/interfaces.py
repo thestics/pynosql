@@ -1,10 +1,19 @@
 from abc import ABC, abstractmethod
+import typing as tp
 
 
-class Serializable(ABC):
+Serialized = tp.Union[str, bytes]
 
-    @abstractmethod
+
+class Saveable(tp.Protocol):
+
     def load(self): pass
 
-    @abstractmethod
     def save(self): pass
+
+
+class Serializable(tp.Protocol):
+
+    def serialize(self): pass
+
+    def deserialize(self, data): pass
