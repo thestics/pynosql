@@ -7,13 +7,15 @@
 import sys
 from typing import Type, TypeVar, Iterator, Any, Optional
 
+from pysql.interfaces import Comparable
+
 T = TypeVar('T', bound='Node')
 
 
 # Node creation
 class Node():
 
-    def __init__(self: T, key: int, value: Any, color: int = 1) -> None:
+    def __init__(self: T, key: Comparable, value: Any, color: int = 1) -> None:
         self._key = key
         self.parent = None
         self.left = None
@@ -35,7 +37,7 @@ class Node():
         else:
             raise Exception("Unknown color")
 
-    def get_key(self: T) -> int:
+    def get_key(self: T) -> Comparable:
         return self._key
 
     def is_red(self: T) -> bool:
@@ -77,10 +79,10 @@ class RedBlackTree():
         if self._iter_format == 2:
             return iter(self.postorder())
 
-    def __getitem__(self: T, key: int) -> int:
+    def __getitem__(self: T, key: Comparable) -> Any:
         return self.search(key).value
 
-    def __setitem__(self: T, key: int, value: Any) -> None:
+    def __setitem__(self: T, key: Comparable, value: Any) -> None:
         self.search(key).value = value
 
     # Setters and Getters #
@@ -146,7 +148,7 @@ class RedBlackTree():
         return output
 
     # Search the tree
-    def search_tree_helper(self: T, node: Node, key: int) -> Node:
+    def search_tree_helper(self: T, node: Node, key: Comparable) -> Node:
         if node.is_null() or key == node.get_key():
             return node
 
@@ -215,7 +217,7 @@ class RedBlackTree():
         v.parent = u.parent
 
     # Node deletion
-    def delete_node_helper(self: T, node: Node, key: int) -> None:
+    def delete_node_helper(self: T, node: Node, key: Comparable) -> None:
         z = self.TNULL
         while not node.is_null():
             if node.get_key() == key:
@@ -312,7 +314,7 @@ class RedBlackTree():
             self.__print_helper(node.left, indent, False)
             self.__print_helper(node.right, indent, True)
 
-    def search(self: T, key: int) -> Node:
+    def search(self: T, key: Comparable) -> Node:
         return self.search_tree_helper(self.root, key)
 
     def minimum(self: T, node: Node = None) -> Node:
