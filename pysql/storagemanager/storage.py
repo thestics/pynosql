@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pysql.conf import DEFAULT_STORAGE_DIR
 from pysql.storagemanager.data_index import Indexes
-from pysql.storagemanager.delete_index import DeletionIndexInner
+from pysql.storagemanager.delete_index import DeletionIndex
 from pysql.util import read_lines
 
 ID_FIELD_NAME = '_id'
@@ -21,7 +21,7 @@ class StorageManager:
 
         index_file = Path(storage_dir) / 'pynosql.index.data'
         self._index = Indexes(file_path=index_file)
-        self._deleted_index = DeletionIndexInner(self._delete_file)
+        self._deleted_index = DeletionIndex(self._delete_file)
 
         for f_name in (self._storage_file, index_file):
             if not os.path.exists(f_name):
@@ -70,9 +70,10 @@ class StorageManager:
         objects = self._get_objects(include_charno=True, **constraints)
 
         deleted_objects_count = 0
-        for deleted_objects_count, o in enumerate(objects):
-            self._deleted_index.mark_deleted(o[CHAR_NUM_FIELD_NAME])
-        self._deleted_index.save()
+        with self._deleted_index.atomic as delete:
+            for deleted_objects_count, o in enumerate(objects):
+                delete.mark_deleted(o[CHAR_NUM_FIELD_NAME])
+
         return deleted_objects_count
 
     def vacuum(self):

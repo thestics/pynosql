@@ -7,13 +7,14 @@ from pysql.datastructures.sorted_list import SortedList
 from pysql.interfaces import Saveable
 
 
-class DeletionIndexInner(Saveable):
+class DeletionIndex(Saveable):
 
     def __init__(self, file_path: tp.Union[str, Path]):
         self._path = file_path
         self._data: tp.Optional[SortedList[int]] = None
         self._buffer = SortedList()
         self._init_data()
+        self._context_manager = DeleteAtomicContextManager(self)
 
     def _flush_buffer(self):
         for item in self._buffer:
@@ -37,33 +38,45 @@ class DeletionIndexInner(Saveable):
             else:
                 self._data = SortedList(literal_eval(data))
 
-    def __enter__(self):
-        return self
+    # public API
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensure that updated deletion index is not saved"""
-        if exc_val is None:
-            self._flush_buffer()
-            self.save()
-            self._reset_buffer()
-        else:
-            self._flush_buffer()
+    @property
+    def atomic(self):
+        return self._context_manager
 
     def save(self):
         with open(self._path, 'w') as f:
-            f.write(str(self._data))
+            f.write(str(self._data + self._buffer))
 
     def load(self):
         self._init_data()
 
     def reset(self):
-        self._data = SortedList()
+        self._reset_data()
         self._reset_buffer()
         self.save()
 
     def is_deleted(self, key):
         return False
 
+
+class DeleteAtomicContextManager:
+
+    def __init__(self, deletion_index):
+        self._index = deletion_index
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Deletion should be atomic"""
+        if exc_val is None:
+            self._index._flush_buffer()
+            self._index.save()
+            self._index._reset_buffer()
+        else:
+            self._index._flush_buffer()
+
     def mark_deleted(self, line_no: int):
         # insert in buffer first to preserve atomicity
-        self._buffer.insert_sorted(line_no)
+        self._index._buffer.insert_sorted(line_no)
