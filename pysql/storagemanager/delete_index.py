@@ -11,7 +11,7 @@ class DeletionIndex(Saveable):
 
     def __init__(self, file_path: tp.Union[str, Path]):
         self._path = file_path
-        self._data: tp.Optional[SortedList[int]] = None
+        self._data = SortedList()
         self._buffer = SortedList()
         self._init_data()
         self._context_manager = DeleteAtomicContextManager(self)
@@ -57,7 +57,7 @@ class DeletionIndex(Saveable):
         self.save()
 
     def is_deleted(self, key):
-        return False
+        return key in self._data or key in self._buffer
 
 
 class DeleteAtomicContextManager:

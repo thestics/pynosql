@@ -14,6 +14,9 @@ class RBSet:
     def __contains__(self, key: int):
         return not self._tree.search(key).is_null()
 
+    def __getitem__(self, key: int):
+        return self._tree.search(key)
+
     def __setitem__(self, key, value):
         self._tree.insert(key, value)
 

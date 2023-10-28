@@ -27,6 +27,10 @@ class Index(Serializable):
         keys = range(len(data))
         return dict(zip(keys, data))
 
+    def __getitem__(self, item):
+        node = self._rb_set[item]
+        return node.value
+
     def add(self, key, value):
         self._rb_set[key] = value
 
@@ -43,6 +47,9 @@ class Indexes(Saveable):
         self._path = file_path
 
         self.load()
+
+    def __getitem__(self, item):
+        return self._index_map[item]
 
     def load(self):
         with open(self._path, self._file_mode_load) as f:
@@ -61,7 +68,7 @@ class Indexes(Saveable):
             return o.serialize()
 
         with open(self._path, self._file_mode_save) as f:
-            f.write(json.dumps(self._index_map, default=default))
+            f.write(json.dumps(self._index_map, default=default, indent=2))
 
     def index_record(self, data: dict, new_data_start: int):
         for field_name, field_value in data.items():
