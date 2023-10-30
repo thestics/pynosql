@@ -1,7 +1,7 @@
 import os
 import typing as tp
 from ast import literal_eval
-from pathlib import Path
+from pathlib import Pяath
 
 from pysql.datastructures.sorted_list import SortedList
 from pysql.interfaces import Saveable
@@ -56,8 +56,8 @@ class DeletionIndex(Saveable):
         self._reset_buffer()
         self.save()
 
-    def is_deleted(self, key):
-        return key in self._data or key in self._buffer
+    def is_deleted(self, start_char_no):
+        return start_char_no in self._data or start_char_no in self._buffer
 
 
 class DeleteAtomicContextManager:

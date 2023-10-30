@@ -79,6 +79,7 @@ class StorageManager:
 
     def _get_objects_indexed(self, include_charno=False, **constraints):
         lines = None
+
         for constraint_key, constraint_val in constraints.items():
             cur_line_nos = self._index[constraint_key][constraint_val] or set()
             if cur_line_nos is None:
@@ -87,7 +88,15 @@ class StorageManager:
                 lines = set(cur_line_nos)
             else:
                 lines.intersection_update(cur_line_nos)
-        return self.storage_file_ops.records_by_charno(lines, include_charno=include_charno)
+
+        not_deleted_lines = [
+            char_no for char_no in lines
+            if not self._deleted_index.is_deleted(char_no)
+        ]
+        return self.storage_file_ops.records_by_charno(
+            not_deleted_lines,
+            include_charno=include_charno
+        )
 
     def _get_objects(self, include_charno=False, **constraints):
         if not constraints:
