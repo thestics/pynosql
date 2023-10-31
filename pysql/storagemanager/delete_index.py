@@ -1,7 +1,7 @@
 import os
 import typing as tp
 from ast import literal_eval
-from pathlib import Pяath
+from pathlib import Path
 
 from pysql.datastructures.sorted_list import SortedList
 from pysql.interfaces import Saveable
@@ -15,6 +15,9 @@ class DeletionIndex(Saveable):
         self._buffer = SortedList()
         self._init_data()
         self._context_manager = DeleteAtomicContextManager(self)
+
+    def __iter__(self):
+        return iter(sorted(self._data + self._buffer))
 
     def _flush_buffer(self):
         for item in self._buffer:
@@ -46,7 +49,7 @@ class DeletionIndex(Saveable):
 
     def save(self):
         with open(self._path, 'w') as f:
-            f.write(str(self._data + self._buffer))
+            f.write(str(sorted(self._data + self._buffer)))
 
     def load(self):
         self._init_data()
@@ -75,7 +78,8 @@ class DeleteAtomicContextManager:
             self._index.save()
             self._index._reset_buffer()
         else:
-            self._index._flush_buffer()
+            # ensure atomicity
+            self._index._reset_buffer()
 
     def mark_deleted(self, line_no: int):
         # insert in buffer first to preserve atomicity

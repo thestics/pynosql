@@ -2,16 +2,14 @@ import json
 import os
 import uuid
 from pathlib import Path
+from threading import Lock
 from typing import Iterable
 
 from pysql.conf import DEFAULT_STORAGE_DIR
+from pysql.storagemanager.cfg import CHAR_NUM_FIELD_NAME, ID_FIELD_NAME
 from pysql.storagemanager.data_index import Indexes
 from pysql.storagemanager.delete_index import DeletionIndex
 from pysql.util import read_lines
-
-
-ID_FIELD_NAME = '_id'
-CHAR_NUM_FIELD_NAME = '_char_no'
 
 
 class FileOps:
@@ -19,9 +17,12 @@ class FileOps:
     def __init__(self, path):
         self._path = path
 
-    def all_records(self):
+    def all_records(self, include_charno=False):
         with open(self._path, 'r') as f:
             for char_no, line in read_lines(f):
+                obj = json.loads(line)
+                if include_charno:
+                    obj[CHAR_NUM_FIELD_NAME] = char_no
                 yield json.loads(line)
 
     def records_by_charno(self, charno_list: Iterable[int], include_charno=False):
@@ -47,6 +48,7 @@ class StorageManager:
         index_file = Path(storage_dir) / 'pynosql.index.data'
         self._index = Indexes(file_path=index_file)
         self._deleted_index = DeletionIndex(self._delete_file)
+        self._deletion_lock = Lock()
 
         for f_name in (self._storage_file, index_file):
             if not os.path.exists(f_name):
@@ -69,6 +71,7 @@ class StorageManager:
         #       This function would serve as a hook to redefine this behaviour
         return self.storage_size
 
+    # todo: multiple creations of the same object?
     def create_object(self, obj: dict):
         obj[ID_FIELD_NAME] = str(uuid.uuid4())
 
@@ -111,8 +114,9 @@ class StorageManager:
 
         deleted_objects_count = 0
         with self._deleted_index.atomic as delete:
-            for deleted_objects_count, o in enumerate(objects):
+            for _, o in enumerate(objects):
                 delete.mark_deleted(o[CHAR_NUM_FIELD_NAME])
+                deleted_objects_count += 1
 
         return deleted_objects_count
 
@@ -122,3 +126,24 @@ class StorageManager:
 
         :return:
         """
+        new_storage_file = Path(str(self._storage_file) + '.new')
+        prev_to_be_deleted_idx = 0
+
+        # do we need lock here? `os.replace` is atomic on os level
+        # according to pydocs
+        with self._deletion_lock, open(self._storage_file) as in_fp, open(new_storage_file, 'w') as out_fp:
+            # deleted index is always sorted
+            for to_be_deleted_idx in self._deleted_index:
+                char_count = to_be_deleted_idx - prev_to_be_deleted_idx
+                chunk = in_fp.read(char_count)
+                out_fp.write(chunk)
+                # skip line as it's the one we want to delete. Save its length
+                prev_to_be_deleted_idx += len(in_fp.readline())
+
+            # carry over any remaining data
+            out_fp.write(in_fp.read())
+            os.replace(new_storage_file, self._storage_file)
+            self._deleted_index.reset()
+            self._index.rebuild(
+                data_generator=self.storage_file_ops.all_records(include_charno=True)
+            )
