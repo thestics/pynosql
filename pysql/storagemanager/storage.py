@@ -23,7 +23,7 @@ class FileOps:
                 obj = json.loads(line)
                 if include_charno:
                     obj[CHAR_NUM_FIELD_NAME] = char_no
-                yield json.loads(line)
+                yield obj
 
     def records_by_charno(self, charno_list: Iterable[int], include_charno=False):
         with open(self._path, 'r') as f:
@@ -85,8 +85,6 @@ class StorageManager:
 
         for constraint_key, constraint_val in constraints.items():
             cur_line_nos = self._index[constraint_key][constraint_val] or set()
-            if cur_line_nos is None:
-                continue
             if lines is None:
                 lines = set(cur_line_nos)
             else:
@@ -103,7 +101,12 @@ class StorageManager:
 
     def _get_objects(self, include_charno=False, **constraints):
         if not constraints:
-            return self.storage_file_ops.all_records()
+            objects = self.storage_file_ops.all_records(include_charno=True)
+            not_deleted_objects = [o for o in objects if not self._deleted_index.is_deleted(o[CHAR_NUM_FIELD_NAME])]
+            if not include_charno:
+                for o in not_deleted_objects:
+                    o.pop(CHAR_NUM_FIELD_NAME)
+            return not_deleted_objects
         return self._get_objects_indexed(include_charno=include_charno, **constraints)
 
     def get_objects(self, **constraints):
